@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PixelLab — Image Filter Studio & Numerical Laboratory</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <!-- Header Bar -->
+  <header class="app-header">
+    <div class="brand-section">
+      <div class="brand-title">
+        <span>PixelLab</span>
+        <span class="tape-label">STUDIO 2.0</span>
+      </div>
+      <div class="brand-subtitle">DARKROOM PRINT SHOP & NUMERICAL LAB</div>
+    </div>
+
+    <div class="header-controls">
+      <!-- Presets -->
+      <select id="preset-select" class="select-input" title="Apply filter stack preset">
+        <option value="">🎞️ Presets...</option>
+        <option value="newspaper">Old Newspaper</option>
+        <option value="thermal">Night Thermal</option>
+        <option value="vcr">Broken VCR</option>
+        <option value="blueprint">Blueprint Cyanotype</option>
+      </select>
+
+      <button id="btn-surprise-me" class="btn" title="Generate a random pleasant filter stack">✨ Surprise Me</button>
+      <button id="btn-process-numpy" class="btn btn-primary" title="Send image to Python/NumPy backend to compare authoritative math">🐍 Process with Python/NumPy</button>
+      
+      <div style="display: flex; gap: 4px;">
+        <button id="btn-undo" class="btn btn-sm" title="Undo (Ctrl+Z)" disabled>↶ Undo</button>
+        <button id="btn-redo" class="btn btn-sm" title="Redo (Ctrl+Shift+Z)" disabled>↷ Redo</button>
+      </div>
+
+      <div style="display: flex; gap: 4px;">
+        <button id="btn-export-png" class="btn btn-sm btn-success" title="Export as PNG">PNG</button>
+        <button id="btn-export-jpg" class="btn btn-sm" title="Export as JPG">JPG</button>
+      </div>
+
+      <button id="btn-toggle-theme" class="btn btn-sm" title="Toggle Light / Dark mode">🌙 Dark</button>
+      <button id="btn-help" class="btn btn-sm" title="Help & Tour">?</button>
+    </div>
+  </header>
+
+  <!-- Navigation Tabs (Index Card Style) -->
+  <nav class="nav-tabs">
+    <button class="tab-btn active" data-tab="tab-studio">1. Studio & Filters</button>
+    <button class="tab-btn" data-tab="tab-inspector">2. Edit Pixels</button>
+    <button class="tab-btn" data-tab="tab-advanced">3. Inside the Pixel (Developer)</button>
+  </nav>
+
+  <!-- Notification Toast -->
+  <div id="status-notification" style="display: none; position: fixed; bottom: 20px; right: 20px; z-index: 1000; background: var(--turmeric); border: var(--rule); padding: 10px 16px; font-family: var(--font-mono); font-size: 0.8rem; box-shadow: var(--shadow-flat);"></div>
+
+  <!-- Hidden File Input -->
+  <input type="file" id="file-upload-input" accept="image/png, image/jpeg, image/webp" style="display: none;">
+
+  <!-- Main Container -->
+  <main class="studio-container">
+
+    <!-- Left Sidebar: Filter Stack (Active in Tab 1) -->
+    <aside id="sidebar-filters" class="filter-sidebar">
+      <div class="sidebar-header">
+        <strong style="font-family: var(--font-display); font-size: 1.05rem;">Filter Stack</strong>
+        <span class="tape-label clay">NON-DESTRUCTIVE</span>
+      </div>
+
+      <!-- Category Index Tabs -->
+      <div class="category-pills">
+        <button class="cat-pill active" data-category="tone">Tone & Light (8)</button>
+        <button class="cat-pill" data-category="color">Color (9)</button>
+        <button class="cat-pill" data-category="convolution">Convolution (8)</button>
+        <button class="cat-pill" data-category="distortion">Distortion (7)</button>
+        <button class="cat-pill" data-category="stylize">Stylize (8)</button>
+        <button class="cat-pill" data-category="rare">Rare & Unique (10)</button>
+        <button class="cat-pill" data-category="all">All (50)</button>
+      </div>
+
+      <!-- Add Filter Dropdown -->
+      <div class="library-picker-area">
+        <select id="filter-add-select" class="select-input" style="width: 100%;">
+          <option value="">+ Add Filter from Library...</option>
+        </select>
+      </div>
+
+      <!-- Active Filter Stack -->
+      <div id="filter-stack-list" class="stack-scroll-area">
+        <!-- Populated dynamically -->
+      </div>
+
+      <div class="sidebar-footer">
+        <button class="btn btn-sm" onclick="document.getElementById('file-upload-input').click();">📁 Upload Photo</button>
+        <span style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--ink-muted);">Real-time Canvas twins</span>
+      </div>
+    </aside>
+
+    <!-- Left Sidebar: Pixel Inspector (Active in Tab 2) -->
+    <aside id="sidebar-inspector" class="inspector-tools-panel" style="display: none;">
+      <!-- 11x11 Loupe HUD -->
+      <div class="inspector-card">
+        <h3>
+          <span>11×11 Magnified Loupe</span>
+          <span id="loupe-coords" style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--vermilion);">(0, 0)</span>
+        </h3>
+        <div class="loupe-container">
+          <canvas id="loupe-canvas"></canvas>
+          <div class="loupe-reticle"></div>
+        </div>
+        <div style="font-size: 0.72rem; color: var(--ink-muted); text-align: center;">Move cursor or click on canvas to inspect</div>
+      </div>
+
+      <!-- Clicked Pixel Readout -->
+      <div class="inspector-card">
+        <h3>Pixel Numeric Readout</h3>
+        <div class="pixel-readout-grid">
+          <div class="readout-item">
+            <span class="readout-label">COORDINATES</span>
+            <span id="readout-xy" class="readout-val">0, 0</span>
+          </div>
+          <div class="readout-item">
+            <span class="readout-label">HEX VALUE</span>
+            <span id="readout-hex" class="readout-val">#000000</span>
+          </div>
+          <div class="readout-item">
+            <span class="readout-label">RGBA [0–255]</span>
+            <span id="readout-rgba" class="readout-val">0, 0, 0, 255</span>
+          </div>
+          <div class="readout-item">
+            <span class="readout-label">HSL</span>
+            <span id="readout-hsl" class="readout-val">0°, 0%, 0%</span>
+          </div>
+          <div class="readout-item" style="grid-column: span 2;">
+            <span class="readout-label">REC.709 LUMINANCE</span>
+            <span id="readout-luma" class="readout-val">0 / 255</span>
+          </div>
+        </div>
+        <div id="pixel-color-swatch" class="color-swatch-box" style="background-color: #000;"></div>
+      </div>
+
+      <!-- Direct Pixel Editor -->
+      <div class="inspector-card">
+        <h3>Direct Pixel Editor</h3>
+        <div class="param-group">
+          <div class="param-header"><span class="param-name">Red</span><input type="range" id="edit-r" class="mixing-slider" min="0" max="255" value="0"></div>
+        </div>
+        <div class="param-group">
+          <div class="param-header"><span class="param-name">Green</span><input type="range" id="edit-g" class="mixing-slider" min="0" max="255" value="0"></div>
+        </div>
+        <div class="param-group">
+          <div class="param-header"><span class="param-name">Blue</span><input type="range" id="edit-b" class="mixing-slider" min="0" max="255" value="0"></div>
+        </div>
+        <div class="param-group">
+          <div class="param-header"><span class="param-name">Alpha</span><input type="range" id="edit-a" class="mixing-slider" min="0" max="255" value="255"></div>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center; margin-top: 8px;">
+          <div id="edit-preview-swatch" style="width: 32px; height: 32px; border: var(--rule); background: #000;"></div>
+          <button id="btn-apply-pixel" class="btn btn-primary" style="flex: 1;">Apply to Pixel</button>
+        </div>
+      </div>
+
+      <!-- Tools Palette -->
+      <div class="inspector-card">
+        <h3>Pixel Tools</h3>
+        <div class="tool-btn-grid">
+          <button class="tool-btn active" data-tool="inspect">🔍 Inspect</button>
+          <button class="tool-btn" data-tool="brush">🖌️ Brush</button>
+          <button class="tool-btn" data-tool="eraser">🧹 Eraser</button>
+          <button class="tool-btn" data-tool="eyedropper">💧 Eyedropper</button>
+        </div>
+
+        <!-- Brush settings -->
+        <div style="margin-top: 12px; border-top: var(--rule); padding-top: 10px;">
+          <div class="param-group">
+            <div class="param-header"><span>Brush Size</span><span id="brush-size-val">5px</span></div>
+            <input type="range" id="brush-size" class="mixing-slider" min="1" max="50" value="5">
+          </div>
+          <div class="param-group">
+            <div class="param-header"><span>Hardness</span><span id="brush-hardness-val">100%</span></div>
+            <input type="range" id="brush-hardness" class="mixing-slider" min="0" max="100" value="100">
+          </div>
+          <div class="param-group">
+            <div class="param-header"><span>Opacity</span><span id="brush-opacity-val">100%</span></div>
+            <input type="range" id="brush-opacity" class="mixing-slider" min="1" max="100" value="100">
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px;">
+            <span style="font-family: var(--font-mono); font-size: 0.74rem; font-weight: 600;">Color:</span>
+            <input type="color" id="brush-color" value="#E3A41B" style="border: var(--rule); width: 44px; height: 26px; cursor: pointer;">
+          </div>
+        </div>
+
+        <!-- Color Replace -->
+        <div style="margin-top: 12px; border-top: var(--rule); padding-top: 10px;">
+          <div class="param-group">
+            <div class="param-header"><span>Replace Tolerance</span><span id="replace-tol-val">30</span></div>
+            <input type="range" id="replace-tolerance" class="mixing-slider" min="5" max="150" value="30">
+          </div>
+          <button id="btn-replace-color" class="btn btn-sm btn-primary" style="width: 100%; margin-top: 4px;">Replace Color in Image</button>
+        </div>
+      </div>
+
+      <!-- Live 4-Channel Histogram -->
+      <div class="inspector-card">
+        <h3>Live Histogram</h3>
+        <canvas id="histogram-canvas"></canvas>
+        <div class="histogram-legend">
+          <span><span class="legend-dot" style="background: #D8442A;"></span>Red</span>
+          <span><span class="legend-dot" style="background: #2E7D6F;"></span>Green</span>
+          <span><span class="legend-dot" style="background: #2D68C4;"></span>Blue</span>
+          <span><span class="legend-dot" style="background: #E3A41B;"></span>Luma</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Central Viewport & Canvas (Shared across Tabs 1 and 2) -->
+    <section id="viewport-main" class="viewport-area">
+      <div class="viewport-toolbar">
+        <div class="toolbar-group">
+          <button id="btn-zoom-out" class="btn btn-sm">−</button>
+          <span id="zoom-label" style="font-family: var(--font-mono); font-size: 0.78rem; font-weight: 700; width: 44px; text-align: center;">100%</span>
+          <button id="btn-zoom-in" class="btn btn-sm">+</button>
+          <button id="btn-zoom-100" class="btn btn-sm">1:1</button>
+          <button id="btn-toggle-grid" class="btn btn-sm" title="Toggle pixel grid lines at high zoom">▦ Grid</button>
+        </div>
+
+        <div class="toolbar-group">
+          <button id="btn-toggle-split" class="btn btn-sm" title="Toggle draggable Before/After comparison">↔ Before / After</button>
+          <button class="btn btn-sm btn-primary" onclick="document.getElementById('file-upload-input').click();">Upload (JPG, PNG, WEBP)</button>
+        </div>
+      </div>
+
+      <div id="canvas-scroller" class="canvas-scroller">
+        <div id="canvas-wrapper" class="canvas-wrapper reg-mark reg-mark-corner-tl reg-mark-corner-tr">
+          <canvas id="main-canvas"></canvas>
+          
+          <!-- Draggable Split Divider -->
+          <div id="split-divider" class="split-divider" style="display: none;">
+            <div class="split-handle">↔</div>
+          </div>
+        </div>
+
+        <!-- Dropzone Overlay -->
+        <div id="dropzone-overlay" class="dropzone-overlay" style="display: none;">
+          <div class="dropzone-icon">📷</div>
+          <div class="dropzone-text">Drop your photo here</div>
+          <div class="dropzone-sub">JPG, PNG, WEBP — downscaled working copy max 1600px</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- View: Inside the Pixel (Developer Tab 3) -->
+    <section id="view-advanced" class="advanced-main" style="display: none; width: 100%;">
+      <!-- Filter Selector -->
+      <div class="notebook-card">
+        <div class="notebook-title">
+          <span>Inside the Pixel: Technical Notebook</span>
+          <span class="tape-label">EDUCATIONAL DEEP DIVE</span>
+        </div>
+        <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+          <label style="font-family: var(--font-mono); font-size: 0.82rem; font-weight: 700;">Select Filter:</label>
+          <select id="advanced-filter-select" class="select-input" style="min-width: 260px;">
+            <!-- Populated dynamically -->
+          </select>
+          <button id="btn-run-trace" class="btn btn-primary">Recalculate Pixel Trace</button>
+        </div>
+        <div id="adv-filter-blurb" style="margin-top: 10px; font-size: 0.88rem; color: var(--ink-muted); font-style: italic;">
+          <!-- Description blurb -->
+        </div>
+      </div>
+
+      <!-- Section 1: Pixel Trace -->
+      <div class="notebook-card">
+        <div class="notebook-title">
+          <span>Step-by-Step Pixel Trace Calculation</span>
+          <span class="tape-label clay">LIVE NUMBERS</span>
+        </div>
+        <div id="trace-steps-box" class="trace-steps-container">
+          <div class="trace-step-line">Click "Recalculate Pixel Trace" or select a pixel in the Inspector tab.</div>
+        </div>
+      </div>
+
+      <!-- Section 2: Convolution Visualizer -->
+      <div class="notebook-card" id="convolution-visualizer-area">
+        <div class="notebook-title">
+          <span>Spatial Convolution Visualizer (Kernel Multiply & Accumulate)</span>
+          <button id="btn-animate-conv" class="btn btn-sm btn-primary">▶ Animate Multiply & Sum</button>
+        </div>
+        <div class="conv-grid-container">
+          <div>
+            <div style="font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; margin-bottom: 6px; text-align: center;">Convolution Kernel Matrix:</div>
+            <div id="kernel-matrix-grid" class="kernel-matrix-grid">
+              <!-- Cells generated dynamically -->
+            </div>
+          </div>
+          <div style="font-family: var(--font-display); font-size: 1.5rem; font-weight: 700;">* Neighborhood =</div>
+          <div>
+            <div style="font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; margin-bottom: 6px; text-align: center;">Accumulator Cell:</div>
+            <div id="conv-result-cell" class="matrix-cell" style="width: 100px; height: 44px; border: var(--rule); font-size: 0.8rem;">
+              Awaiting Step
+            </div>
+          </div>
+        </div>
+        <div style="font-size: 0.78rem; color: var(--ink-muted); line-height: 1.4;">
+          Kernel weights multiply neighboring pixel intensities. The scalar sum is clamped into [0, 255] uint8.
+        </div>
+      </div>
+
+      <!-- Section 3: Code Comparison (NumPy vs JS) -->
+      <div class="notebook-card">
+        <div class="notebook-title">
+          <span>Side-by-Side Implementation Code</span>
+          <button id="btn-run-benchmark" class="btn btn-sm btn-primary">⚡ Run Performance Benchmark</button>
+        </div>
+        <div id="benchmark-results-box" style="margin-bottom: 12px;"></div>
+        <div class="code-diff-container">
+          <div class="code-box">
+            <div class="code-box-header">
+              <span>🐍 NumPy (Backend Vectorized)</span>
+              <span>Python 3.11+</span>
+            </div>
+            <pre id="code-numpy" class="code-content"></pre>
+          </div>
+          <div class="code-box">
+            <div class="code-box-header">
+              <span>⚡ JavaScript (Browser Client)</span>
+              <span>ImageData Canvas API</span>
+            </div>
+            <pre id="code-js" class="code-content"></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 4: Data View & Channels -->
+      <div class="notebook-card">
+        <div class="notebook-title">
+          <span>Data Inspector: ndarray View & Channel Split</span>
+          <div style="display: flex; gap: 6px;">
+            <button class="btn btn-sm data-view-toggle active" data-mode="image">Image View</button>
+            <button class="btn btn-sm data-view-toggle" data-mode="raw">Raw ndarray Table (8×8)</button>
+            <button class="btn btn-sm data-view-toggle" data-mode="channels">RGB Channels</button>
+            <button id="btn-toggle-heatmap" class="btn btn-sm btn-primary">🔥 Pixel Diff Heatmap</button>
+          </div>
+        </div>
+
+        <div id="raw-array-view-area" class="raw-array-table-wrapper" style="display: none; padding: 12px;"></div>
+        <div id="channels-view-area" style="display: none; gap: 16px; margin-top: 12px;"></div>
+
+        <div id="heatmap-display-box" style="display: none; margin-top: 14px;">
+          <div class="tape-label" style="margin-bottom: 8px;">Before / After Difference Heatmap (|Processed − Original|)</div>
+          <div style="border: var(--rule); display: inline-block; box-shadow: var(--shadow-flat-sm);">
+            <canvas id="diff-heatmap-canvas" style="display: block; max-height: 280px; image-rendering: pixelated;"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 5: Interactive Pixel Arithmetic Demos -->
+      <div class="notebook-card">
+        <div class="notebook-title">
+          <span>Pixel Arithmetic Fundamentals (Interactive Demos)</span>
+          <span class="tape-label verdigris">THEORY & LAB</span>
+        </div>
+        <div class="arithmetic-demos-grid">
+          
+          <!-- Demo 1: uint8 Overflow -->
+          <div class="demo-card">
+            <h4>1. uint8 Overflow & Clamping</h4>
+            <p>Standard 8-bit integers wrap around 255 (e.g. 250 + 10 = 4). NumPy uses <code>np.clip</code> to saturate.</p>
+            <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+              <input type="number" id="demo-overflow-input" value="200" style="width: 70px;" class="search-input">
+              <span>+</span>
+              <input type="number" id="demo-overflow-add" value="80" style="width: 70px;" class="search-input">
+            </div>
+            <div id="demo-overflow-res" style="font-family: var(--font-mono); font-size: 0.78rem;"></div>
+          </div>
+
+          <!-- Demo 2: Gamma vs Linear Light -->
+          <div class="demo-card">
+            <h4>2. Gamma vs Linear Light Blending</h4>
+            <p>Averaging in non-linear sRGB creates dark edges. Blending in linear light preserves optical energy.</p>
+            <div class="param-group">
+              <div class="param-header"><span>Display Gamma:</span></div>
+              <input type="range" id="demo-gamma-val" class="mixing-slider" min="1.0" max="3.0" step="0.1" value="2.2">
+            </div>
+            <div id="demo-gamma-res" style="font-family: var(--font-mono); font-size: 0.78rem;">Naive: 128 vs Linear: 186</div>
+          </div>
+
+          <!-- Demo 3: Premultiplied Alpha -->
+          <div class="demo-card">
+            <h4>3. Premultiplied vs Straight Alpha</h4>
+            <p>In straight alpha, color is unweighted by transparency. Premultiplied stores <code>(R×A, G×A, B×A)</code>.</p>
+            <div class="param-group">
+              <div class="param-header"><span>Alpha:</span></div>
+              <input type="range" id="demo-alpha-slider" class="mixing-slider" min="0" max="100" value="50">
+            </div>
+            <div id="demo-alpha-res" style="font-family: var(--font-mono); font-size: 0.75rem;"></div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- 4-Step Onboarding Modal -->
+  <div id="onboarding-modal" class="modal-backdrop">
+    <div class="onboarding-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: var(--rule); padding-bottom: 8px;">
+        <h3 style="font-family: var(--font-display); font-size: 1.3rem;">Welcome to PixelLab Studio</h3>
+        <button id="btn-close-modal" class="icon-btn">✕</button>
+      </div>
+      <div class="onboarding-steps">
+        <div class="step-card">
+          <div class="step-number">STEP 01</div>
+          <h4>Upload Image</h4>
+          <p>Drop any JPG, PNG, or WEBP photo. It is automatically scaled to a 1600px working canvas while preserving the original.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-number">STEP 02</div>
+          <h4>Layer Filters</h4>
+          <p>Pick from 50 filters across Tone, Color, Convolution, Distortion, Stylize, and Rare signature sets. Reorder and tweak non-destructively.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-number">STEP 03</div>
+          <h4>Inspect & Edit Pixels</h4>
+          <p>Switch to Edit Pixels. Use the 11×11 loupe, inspect RGBA and HSL values, draw with the pixel brush, or replace colors within tolerance.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-number">STEP 04</div>
+          <h4>Inside the Pixel</h4>
+          <p>Explore the Developer Tab for real numeric calculation traces, convolution matrix animations, and side-by-side NumPy vs JS code.</p>
+        </div>
+      </div>
+      <div style="text-align: right;">
+        <button class="btn btn-primary" onclick="document.getElementById('onboarding-modal').classList.remove('active'); localStorage.setItem('pixellab_onboarded', 'true');">Get Started</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="/static/js/filters.js"></script>
+  <script src="/static/js/inspector.js"></script>
+  <script src="/static/js/advanced.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
