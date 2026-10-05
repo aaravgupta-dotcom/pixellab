@@ -6,6 +6,23 @@ An advanced **"Inside the Pixel"** tab exposes the exact mathematics behind ever
 
 ---
 
+## ☁️ Permanent 24/7 Cloud Deployment
+
+Deploy PixelLab to the cloud with one click so it runs 24/7 forever without needing your local machine running:
+
+### Option 1: Deploy to Render (Recommended — 100% Free Forever)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/aaravgupta-dotcom/pixellab)
+
+1. Click the **Deploy to Render** button above (or go to [render.com](https://render.com) and click **New > Web Service**).
+2. Connect your GitHub account and select `aaravgupta-dotcom/pixellab`.
+3. Render automatically reads `render.yaml` / `Procfile`, installs `requirements.txt`, and builds the web service.
+4. Your permanent cloud link will be live at: `https://pixellab-[your-id].onrender.com`!
+
+### Option 2: Deploy to Koyeb / Railway / Fly.io (Docker)
+This repository includes a production `Dockerfile`. Simply import `aaravgupta-dotcom/pixellab` into [Koyeb](https://www.koyeb.com/) or [Railway](https://railway.app/) for instant container hosting.
+
+---
+
 ## Tech Stack
 
 - **Backend**: Python 3.11+, Flask 3.1+, NumPy 2.x for authoritative numerical image processing, Pillow for decoding and encoding image files.
